@@ -83,14 +83,35 @@ otError otPlatInfraIfSendIcmp6Nd(uint32_t            aInfraIfIndex,
  * @note  Per RFC 4861, the caller should enforce that the source address MUST be a IPv6 link-local
  *        address and the IP Hop Limit MUST be 255.
  *
- * @note  ICMPv6 message received from @p aInfraIfIndex via multicast loopback should not be passed in.
- *
  */
 extern void otPlatInfraIfRecvIcmp6Nd(otInstance *        aInstance,
                                      uint32_t            aInfraIfIndex,
                                      const otIp6Address *aSrcAddress,
                                      const uint8_t *     aBuffer,
                                      uint16_t            aBufferLength);
+
+/**
+ * The infra interface driver calls this method to notify OpenThread
+ * of the interface state changes.
+ *
+ * @param[in]  aInstance          The OpenThread instance structure.
+ * @param[in]  aInfraIfIndex      The index of the infrastructure interface.
+ * @param[in]  aIsRunning         A boolean that indicates whether the infrastructure
+ *                                interface is running.
+ * @param[in]  aLinkLocalAddress  A pointer to the IPv6 link-local address of the infrastructure
+ *                                interface. NULL if the IPv6 link-local address is lost.
+ *
+ * @retval  OT_ERROR_NONE           Successfully updated the infra interface status.
+ * @retval  OT_ERROR_INVALID_STATE  The Routing Manager is not initialized.
+ * @retval  OT_ERROR_INVALID_ARGS   The @p aInfraIfIndex doesn't match the infra interface the
+ *                                  Routing Manager are initialized with, or the @p aLinkLocalAddress
+ *                                  is not a valid IPv6 link-local address.
+ *
+ */
+extern otError otPlatInfraIfStateChanged(otInstance *        aInstance,
+                                         uint32_t            aInfraIfIndex,
+                                         bool                aIsRunning,
+                                         const otIp6Address *aLinkLocalAddress);
 
 #ifdef __cplusplus
 } // extern "C"

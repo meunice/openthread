@@ -37,6 +37,15 @@
 #include "openthread-core-config.h"
 
 #if OPENTHREAD_FTD && OPENTHREAD_CONFIG_BACKBONE_ROUTER_ENABLE
+
+#if (OPENTHREAD_CONFIG_THREAD_VERSION < OT_THREAD_VERSION_1_2)
+#error "Thread 1.2 or higher version is required for OPENTHREAD_CONFIG_BACKBONE_ROUTER_ENABLE."
+#endif
+
+#if !OPENTHREAD_CONFIG_TMF_NETDATA_SERVICE_ENABLE
+#error "OPENTHREAD_CONFIG_TMF_NETDATA_SERVICE_ENABLE is required for OPENTHREAD_CONFIG_BACKBONE_ROUTER_ENABLE."
+#endif
+
 #include <openthread/backbone_router.h>
 #include <openthread/backbone_router_ftd.h>
 
@@ -239,10 +248,10 @@ public:
     void SetDomainPrefixCallback(otBackboneRouterDomainPrefixCallback aCallback, void *aContext);
 
 private:
-    void    SetState(BackboneRouterState aState);
-    otError RemoveService(void);
-    void    AddDomainPrefixToNetworkData(void);
-    void    RemoveDomainPrefixFromNetworkData(void);
+    void SetState(BackboneRouterState aState);
+    void RemoveService(void);
+    void AddDomainPrefixToNetworkData(void);
+    void RemoveDomainPrefixFromNetworkData(void);
 #if (OPENTHREAD_CONFIG_LOG_LEVEL >= OT_LOG_LEVEL_INFO) && (OPENTHREAD_CONFIG_LOG_BBR == 1)
     void LogBackboneRouterService(const char *aAction, otError aError);
     void LogDomainPrefix(const char *aAction, otError aError);

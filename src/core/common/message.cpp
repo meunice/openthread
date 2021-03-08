@@ -43,6 +43,10 @@
 
 #if OPENTHREAD_MTD || OPENTHREAD_FTD
 
+#if OPENTHREAD_CONFIG_MESSAGE_USE_HEAP_ENABLE && OPENTHREAD_CONFIG_PLATFORM_MESSAGE_MANAGEMENT
+#error "OPENTHREAD_CONFIG_MESSAGE_USE_HEAP_ENABLE conflicts with OPENTHREAD_CONFIG_PLATFORM_MESSAGE_MANAGEMENT."
+#endif
+
 #if OPENTHREAD_CONFIG_MESSAGE_USE_HEAP_ENABLE && !OPENTHREAD_CONFIG_DTLS_ENABLE
 #error "OPENTHREAD_CONFIG_MESSAGE_USE_HEAP_ENABLE is strongly discouraged when OPENTHREAD_CONFIG_DTLS_ENABLE is off."
 #endif
@@ -111,7 +115,7 @@ Buffer *MessagePool::NewBuffer(Message::Priority aPriority)
 
     while ((
 #if OPENTHREAD_CONFIG_MESSAGE_USE_HEAP_ENABLE
-               buffer = static_cast<Buffer *>(GetInstance().HeapCAlloc(sizeof(Buffer), 1))
+               buffer = static_cast<Buffer *>(Instance::HeapCAlloc(1, sizeof(Buffer)))
 #elif OPENTHREAD_CONFIG_PLATFORM_MESSAGE_MANAGEMENT
                buffer = static_cast<Buffer *>(otPlatMessagePoolNew(&GetInstance()))
 #else
@@ -143,7 +147,7 @@ void MessagePool::FreeBuffers(Buffer *aBuffer)
     {
         Buffer *next = aBuffer->GetNextBuffer();
 #if OPENTHREAD_CONFIG_MESSAGE_USE_HEAP_ENABLE
-        GetInstance().HeapFree(aBuffer);
+        Instance::HeapFree(aBuffer);
 #elif OPENTHREAD_CONFIG_PLATFORM_MESSAGE_MANAGEMENT
         otPlatMessagePoolFree(&GetInstance(), aBuffer);
 #else
@@ -355,6 +359,23 @@ exit:
     return error;
 }
 
+const char *Message::PriorityToString(Priority aPriority)
+{
+    static const char *const kPriorityStrings[] = {
+        "low",    // (0) kPriorityLow
+        "normal", // (1) kPriorityNormal
+        "high",   // (2) kPriorityHigh
+        "net",    // (3) kPriorityNet
+    };
+
+    static_assert(kPriorityLow == 0, "kPriorityLow value is incorrect");
+    static_assert(kPriorityNormal == 1, "kPriorityNormal value is incorrect");
+    static_assert(kPriorityHigh == 2, "kPriorityHigh value is incorrect");
+    static_assert(kPriorityNet == 3, "kPriorityNet value is incorrect");
+
+    return kPriorityStrings[aPriority];
+}
+
 otError Message::AppendBytes(const void *aBuf, uint16_t aLength)
 {
     otError  error     = OT_ERROR_NONE;
@@ -523,6 +544,48 @@ uint16_t Message::ReadBytes(uint16_t aOffset, void *aBuf, uint16_t aLength) cons
 otError Message::Read(uint16_t aOffset, void *aBuf, uint16_t aLength) const
 {
     return (ReadBytes(aOffset, aBuf, aLength) == aLength) ? OT_ERROR_NONE : OT_ERROR_PARSE;
+}
+
+bool Message::CompareBytes(uint16_t aOffset, const void *aBuf, uint16_t aLength) const
+{
+    uint16_t       bytesToCompare = aLength;
+    const uint8_t *bufPtr         = reinterpret_cast<const uint8_t *>(aBuf);
+    Chunk          chunk;
+
+    GetFirstChunk(aOffset, aLength, chunk);
+
+    while (chunk.GetLength() > 0)
+    {
+        VerifyOrExit(memcmp(bufPtr, chunk.GetData(), chunk.GetLength()) == 0);
+        bufPtr += chunk.GetLength();
+        bytesToCompare -= chunk.GetLength();
+        GetNextChunk(aLength, chunk);
+    }
+
+exit:
+    return (bytesToCompare == 0);
+}
+
+bool Message::CompareBytes(uint16_t       aOffset,
+                           const Message &aOtherMessage,
+                           uint16_t       aOtherOffset,
+                           uint16_t       aLength) const
+{
+    uint16_t bytesToCompare = aLength;
+    Chunk    chunk;
+
+    GetFirstChunk(aOffset, aLength, chunk);
+
+    while (chunk.GetLength() > 0)
+    {
+        VerifyOrExit(aOtherMessage.CompareBytes(aOtherOffset, chunk.GetData(), chunk.GetLength()));
+        aOtherOffset += chunk.GetLength();
+        bytesToCompare -= chunk.GetLength();
+        GetNextChunk(aLength, chunk);
+    }
+
+exit:
+    return (bytesToCompare == 0);
 }
 
 void Message::WriteBytes(uint16_t aOffset, const void *aBuf, uint16_t aLength)
